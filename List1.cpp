@@ -1,94 +1,153 @@
 /*List with ptr  链表-指针实现*/
-/*妈的 崩了 不好用 明天重写*/
+/*feture C*/
+/*Version 0.1*/
+
 #include<iostream>
 using namespace std;
-class Node
+
+struct Node;
+typedef struct Node *PtrToNode;
+typedef PtrToNode List;
+typedef PtrToNode Address;
+
+List MakeList();
+int IsEmpty(List L);
+int IsLast(List L, Address p);
+void Delete(List L, int v);
+void Insert(List L, Address p, int v);
+void DeleteList(List L);
+void Print(List L);
+Address FindPrevious(List L, int v);
+Address Find(List L, int v);
+Address Header(List L);
+Address First(List L);
+Address Advance(Address p);
+int Retrieve(Address p);
+
+
+
+/*Show struct Node*/
+struct Node
 {
-public:
-	Node *next;
 	int value;
+	Address next;
 };
 
-class List
+/*Check if List L is empty */
+int IsEmpty(List L)
 {
-public:	
-	int Empty();
-	int IsEmpty();
-	int IsLast(Node n);
-	int Insert(int v,Node &n);
-	int Delete(Node &n);
-	Node Find(int v);
-	Node FindPre(Node n);
-	Node header;
-};
-int List::Empty() //会导致内存泄漏，暂时不会改orz
-{
-	this->header.next = nullptr;
-	return 1;
+	return (L->next == nullptr);
 }
-int List::IsEmpty()
+
+/*Check if p is the last element in List L*/
+int IsLast(List L, Address p)
 {
-	if (this->header.next == nullptr)
-		return 1;
-	return 0;
+	return (p->next == nullptr);
 }
-int List::IsLast(Node n)
+
+/*Initialize List L*/
+List MakeList()
 {
-	if (n.next == nullptr)
-		return 1;
-	return 0;
+	List L = new Node;
+	L->value = 0;
+	L->next = nullptr;
+	return L;
 }
-Node List::FindPre(Node n)
+
+/*Return the address of v*/
+Address Find(List L, int v)
 {
-	Node m = this->header;
-	while (m.next != nullptr)
+	Address t = Header(L);
+	while (t->next != nullptr)
 	{
-		if (m.next == &n)
-			return m;
-		else (m=*m.next);
-	}
-	return header ;//没有找到节点N，返回header
-}
-int List::Delete(Node &n) //会导致内存泄漏，暂时不会改orz
-{
-	Node temp=FindPre(n);
-	temp.next = n.next;
-	n.next = nullptr;
-	return 1;
-}
-Node List::Find(int v)
-{
-	Node t = header;
-	while (t.next != nullptr)
-	{
-		t = *t.next;
-		if (t.value == v)
+		t = t->next;
+		if (t->value == v)
 			return t;
 	}
-	return header;//没有找到节点N，返回header
-}
-int List::Insert(int v, Node &n)
-{
-	if (&n == &header)
-	{
-		Node t;
-		t.value = v;
-		t.next = nullptr;
-		header.next = &t;
-	}
-	else
-	{
-		Node t;
-		t.value = v;
-		t.next = n.next;
-		n.next = &t;
-	}
-	return 1;
+	return nullptr;
 }
 
-int main()//test
+/*Return the address of v's previous element*/
+Address FindPrevious(List L, int v)
 {
-	List L;
-	L.Insert(1, L.header);
-	cout << &L.Find(1) << endl;
+	Address t = Header(L);
+	while (!IsLast(L,t))
+	{
+		if (t->next->value == v)
+			return t;
+		t = t->next;
+	}
+	return nullptr;
+}
+
+/*Return the Header of L*/
+Address Header(List L)
+{
+	return L;
+}
+
+/*Return the First element in L*/
+Address First(List L)
+{
+	return Header(L)->next;
+}
+
+/*Insert v after Address P*/
+void Insert(List L, Address p, int v)
+{
+	Address n=new Node;
+	n->next = p->next;
+	n->value = v;
+	p->next = n;
+}
+
+/*Delete the element whose value is v*/
+void Delete(List L, int v)
+{
+	Address t = FindPrevious(L, v);
+	Address temp = t->next;
+	t->next = temp->next;
+	free(temp);
+}
+
+/*Make List L Empty but keep Address L*/
+void Empty(List L)
+{
+	while (!IsEmpty(L))
+	{
+		Address temp = First(L);
+		Header(L)->next = temp->next;
+		free(temp);
+	}
+}
+
+/*Delete List L*/
+void DeleteList(List L)
+{
+	delete L;
+}
+
+void Print(List L)
+{
+	Address t = Header(L);
+	cout << "Head ";
+	while (!IsLast(L,t))
+	{
+		t = t->next;
+		cout << t->value << " ";
+	}
+	cout <<"Tail"<< endl;
+}
+
+int main()
+{
+	List L=MakeList();
+	Insert(L, Header(L), 1);
+	Insert(L, Find(L, 1), 2);
+	Print(L);
+	Empty(L);
+	Print(L);
+	int i;
+	cin >> i;
+	
 }
