@@ -1,4 +1,4 @@
-//B-tree feat.cpp version 1.0
+//B-tree feat.cpp version 2.0
 #include<iostream>
 #include<deque>
 #include<string>
@@ -476,6 +476,7 @@ int Borrow(BTree &tree, PNode ptr)
 	{
 		int *t = &father->value[pos];
 		Insert0(ptr, *t);
+		ptr->son[ptr->num] = father->son[pos + 1]->son[0];
 		*t = father->son[pos + 1]->value[0];
 		/*for (int i = 0; i < father->son[pos + 1]->num - 1; i++)
 		{
@@ -680,7 +681,7 @@ int main()
 		{
 			
 			BFS(ptroot);
-			//ShowTree(*tree, 0);
+			ShowTree(*tree, 0);
 			
 		}
 		n = 0;
