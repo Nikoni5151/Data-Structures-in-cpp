@@ -1,9 +1,11 @@
 //B-tree feat.cpp version 1.0
 #include<iostream>
+#include<deque>
+#include<string>
 
 using namespace std;
 
-#define rank 5			//B树的阶
+#define rank 3		//B树的阶
 #define NaN -2147483647	//未定义数，用于初始化value
 
 class Node;				//结点类
@@ -19,13 +21,13 @@ inline bool HasValue(PNode ptr, int v);	//ptr节点已经存在值v ? 1 : 0;
 
 int Insert0(PNode ptr, int v);
 int Insert(PNode ptr, int v);
-int Add(BTree tree, PNode ptr, int v);	//尝试向tree中的ptr节点加入v值
-int Add(BTree tree, PNode ptr, int v, PNode newnode);	//尝试向tree中的ptr节点加入v值和newnode指针
-int Divide(BTree tree, PNode ptr);		//分裂tree的ptr节点
-int Delete(BTree tree, PNode ptr, int v);	//删除tree中v值
+int Add(BTree &tree, PNode ptr, int v);	//尝试向tree中的ptr节点加入v值
+int Add(BTree &tree, PNode ptr, int v, PNode newnode);	//尝试向tree中的ptr节点加入v值和newnode指针
+int Divide(BTree &tree, PNode ptr);		//分裂tree的ptr节点
+int Delete(BTree &tree, PNode ptr, int v);	//删除tree中v值
 void Move(PNode ptr,int v);						//移动删除后的节点
-int Check(BTree tree, PNode ptr);		//检查并修正ptr节点值的数量使之符合标准
-int Borrow(BTree tree, PNode ptr);		//尝试向ptr->fa借一个节点
+int Check(BTree &tree, PNode ptr);		//检查并修正ptr节点值的数量使之符合标准
+int Borrow(BTree &tree, PNode ptr);		//尝试向ptr->fa借一个节点
 Location Find(PNode root, int v);		//在根为root的树中查找值v，返回值v的为止，若不存在，返回nullptr
 
 class Node
@@ -51,6 +53,7 @@ public:
 		value = nullptr;
 	}
 };
+
 inline bool IsEmpty(PNode ptr)
 {
 	return ptr->num == 0 ? 1 : 0;
@@ -102,22 +105,72 @@ public:
 int Insert0(PNode ptr, int v)		//简化Insert，保证ptr中一定可以插入v时使用
 {
 	if (HasValue(ptr, v)) return -1; //如果ptr节点已包含v值，返回-1；正常插入，返回-2；
-	for (int i = 0; i < ptr->num; i++)
+	if (ptr->num == 0)
 	{
-		if (v < ptr->value[i])
-		{
-			for (int j = rank; j >i; j--)
-			{
-				ptr->value[j] = ptr->value[j - 1];
-			}
-
-			ptr->value[i] = v;
-			ptr->num++;
-			return -2;
-		}
+		ptr->value[0] = v;
+		ptr->num++;
+		return -2;
 	}
-	ptr->value[ptr->num] = v;
-	ptr->num++;
+	else
+	{
+		for (int i = 0; i < ptr->num; i++)
+		{
+			if (v < ptr->value[i])
+			{
+				for (int j = rank; j > i; j--)
+				{
+					ptr->value[j] = ptr->value[j - 1];
+				}
+				/*for (int j = rank+1; j > i; j--)
+				{
+					ptr->son[j] = ptr->son[j - 1];
+				}*/
+
+				ptr->value[i] = v;
+				ptr->num++;
+				return -2;
+			}
+		}
+		ptr->value[ptr->num] = v;
+		ptr->num++;
+	}
+	return -2;
+}
+
+int Insert0(PNode ptr, int v,PNode pnnode)		//简化Insert，保证ptr中一定可以插入v时使用
+{
+	if (HasValue(ptr, v)) return -1; //如果ptr节点已包含v值，返回-1；正常插入，返回-2；
+	if (ptr->num == 0)
+	{
+		ptr->value[0] = v;
+		ptr->num++;
+		return -2;
+	}
+	else
+	{
+		for (int i = 0; i < ptr->num; i++)
+		{
+			if (v < ptr->value[i])
+			{
+				for (int j = rank; j > i; j--)
+				{
+					ptr->value[j] = ptr->value[j - 1];
+				}
+				for (int j = rank+1; j > i; j--)
+				{
+					ptr->son[j] = ptr->son[j - 1];
+				}
+
+				ptr->value[i] = v;
+				ptr->son[i+1] = pnnode;
+				ptr->num++;
+				return -2;
+			}
+		}
+		ptr->value[ptr->num] = v;
+		ptr->son[ptr->num+1] = pnnode;
+		ptr->num++;
+	}
 	return -2;
 }
 
@@ -162,7 +215,7 @@ int Insert(PNode ptr, int v)
 	return -3;
 }
 
-int Add(BTree tree, PNode ptr, int v)	//如果添加后ptr节点数据数量超限，将ptr节点分裂
+int Add(BTree &tree, PNode ptr, int v)	//如果添加后ptr节点数据数量超限，将ptr节点分裂
 {
 	int state = Insert(ptr, v);
 	if (state == -3)
@@ -183,32 +236,33 @@ int Add(BTree tree, PNode ptr, int v)	//如果添加后ptr节点数据数量超�
 	if (state >= 0)
 	{
 		Add(tree, ptr->son[state], v);
+		if (IsFull(ptr)) Divide(tree, ptr);
 		return 0;
 	}
 	return -4;
 }
 
-int Add(BTree tree, PNode ptr, int v, PNode newnode)
+int Add(BTree &tree, PNode ptr, int v, PNode newnode)
 {
-	int state = Insert0(ptr, v);
+	int state = Insert0(ptr, v,newnode);
 
 	if (state == -1 || state == -3)
 		return state;
 	if (state == -2)
 	{
-		ptr->son[ptr->num] = newnode;
 		if (IsFull(ptr)) Divide(tree, ptr);
 		return -2;
 	}
 	return -4;
 }
 
-int Divide(BTree tree, PNode ptr)
+int Divide(BTree &tree, PNode ptr)
 {
 	int mid = rank / 2;
 	int midvalue = ptr->value[mid];
 	Node* newnode = new Node;
 	PNode pnnode = newnode;
+	
 	pnnode->fa = ptr->fa;	//分裂的新节点的父亲和ptr节点的父亲相同
 
 	//copy：将ptr节点右半部分复制到newnode节点
@@ -217,11 +271,12 @@ int Divide(BTree tree, PNode ptr)
 		pnnode->value[i - mid - 1] = ptr->value[i];
 		pnnode->num++;
 	}
-	for (int i = mid; i < rank + 1; i++)
+	for (int i = mid+1; i < rank + 1; i++)
 	{
-		pnnode->son[i - mid - 1] = ptr->son[i];
+		pnnode->son[i - mid -1] = ptr->son[i];
+		if (!IsLeaf(ptr))ptr->son[i]->fa = pnnode;
 	}
-
+	
 	//delete：将ptr节点已被复制的部分和mid删除
 	for (int i = mid; i < rank; i++)
 	{
@@ -239,11 +294,13 @@ int Divide(BTree tree, PNode ptr)
 		PNode pnroot = newroot;
 		pnroot->num++;
 		pnroot->value[0] = midvalue;
+
 		pnroot->son[0] = ptr;
 		ptr->fa = pnroot;
+
 		pnroot->son[1] = pnnode;
 		pnnode->fa = pnroot;
-		*tree = newroot;
+		*tree = pnroot;
 	}
 	else
 	{
@@ -252,28 +309,6 @@ int Divide(BTree tree, PNode ptr)
 	return 0;
 }
 
-void ShowTree(PNode tree, int deep)				//打印树
-{
-	cout << "----------------" << endl;
-	cout << "这是第" << deep << "层" << endl;
-	cout << "该节点有" << tree->num << "个数据" << endl;
-	cout << "该节点存储的数据：" << endl;
-	for (int i = 0; i < tree->num; i++)
-		cout << tree->value[i] << ' ';
-	cout << endl;
-
-	if (IsRoot(tree))
-		cout << "这是根节点" << endl;
-	else
-		cout << "该节点的父节点是" << tree->fa->value[0] << endl;
-
-
-	if (!IsLeaf(tree))
-	{
-		for (int i = 0; i < tree->num + 1; i++)
-			ShowTree(tree->son[i], deep + 1);
-	}
-}
 
 Location Find(PNode root, int v)
 {
@@ -299,11 +334,21 @@ Location Find(PNode root, int v)
 	return newloc;						//没啥用，为了去掉warning写的return
 }
 
-int Delete(BTree tree, PNode ptr, int v)
+int Delete(BTree &tree, PNode ptr, int v)
 {
+	
 	cout << "Trying to delete " << v << endl;
-	Location l = Find(ptr, v);
+	Location l = Find(ptr, v); //cout << l.number << ' '; cout << l.pnode->value[0] << endl;
 	//cout << l.pnode->value[l.number] << endl;
+	if ((l.pnode == *tree) && l.pnode->num == 1)
+	{
+		ptr->num = 0;
+		ptr->value[0] = NaN;
+		ptr->son[0] = nullptr;
+		ptr->son[1] = nullptr;
+		return 0;
+	}
+
 	if (l.pnode == nullptr)
 	{
 		cout << "错误！未找到值" << v << endl;
@@ -312,15 +357,15 @@ int Delete(BTree tree, PNode ptr, int v)
 	
 	if (IsLeaf(l.pnode))							//v出现在叶子节点中，删除v，检查该叶节点
 	{
-		for (int i = l.number; i < l.pnode->num+1; i++)
+		/*for (int i = l.number; i < l.pnode->num+1; i++)
 		{
 			l.pnode->son[i] = l.pnode->son[i + 1];
-		}
+		}*/
 		for (int i = l.number; i < l.pnode->num; i++)
 		{
 			l.pnode->value[i] = l.pnode->value[i + 1];
 		}
-		l.pnode->son[l.pnode->num] = nullptr;
+		//l.pnode->son[l.pnode->num] = nullptr;
 		l.pnode->num--;
 		Check(tree, l.pnode);
 		return 1;
@@ -372,10 +417,25 @@ void Move(PNode ptr,int v)					//调整删除数值之后的节点的位置 其�
 	ptr->num--;
 }
 
-int Check(BTree tree, PNode ptr)		
+void Mover(PNode ptr, int v)					//调整删除数值之后的节点的位置 其实本来没写这个函数 后来发现这段代码多次出现 就提取出来了
 {
-	if ((ptr->num < rank / 2) && (!IsRoot(ptr)))	//如果ptr不符合标准且不是根节点，从根节点借数据
+	for (int i = v; i < ptr->num - 1; i++)
 	{
+		ptr->value[i] = ptr->value[i + 1];
+	}
+	for (int i = v+1; i < ptr->num; i++)
+	{
+		ptr->son[i] = ptr->son[i + 1];
+	}
+	ptr->son[ptr->num] = nullptr;
+	ptr->num--;
+}
+
+int Check(BTree &tree, PNode ptr)		
+{
+	if ((ptr->num < rank / 2) && (!IsRoot(ptr)))	//如果ptr不符合标准且不是根节点，从父节点借数据
+	{
+		if (IsLeaf(ptr) && ptr->num != 0) return 1;
 		Borrow(tree, ptr);
 		return 1;
 	}
@@ -387,16 +447,18 @@ int Check(BTree tree, PNode ptr)
 	}
 	return 0;
 }
-int Borrow(BTree tree, PNode ptr)
+int Borrow(BTree &tree, PNode ptr)
 {
 	PNode father = ptr->fa;
 	
 	int pos = father->num;	//pos:指向ptr的指针在father中的位置
-	for (int i = 0; i < father->num; i++)
-		if (ptr->value[0] < father->value[i])
+	for (int i = 0; i < father->num+1; i++)
+		if ((father->son[i])==(ptr))
 		{
 			pos = i;
+			//cout << pos << endl;
 			break;
+			
 		}
 	
 	int lsnum = 0, rsnum = 0;	//father->son[pos]左右兄弟节点的数据数量
@@ -432,8 +494,9 @@ int Borrow(BTree tree, PNode ptr)
 	{
 		int *t = &father->value[pos-1];
 		Insert0(ptr, *t);
+		ptr->son[ptr->num] = ptr->son[ptr->num - 1];
+		ptr->son[ptr->num - 1]=father->son[pos-1]->son[father->son[pos - 1]->num];
 		*t = father->son[pos - 1]->value[father->son[pos - 1]->num-1];
-		father->son[pos - 1]->son[father->son[pos - 1]->num - 1] = father->son[pos - 1]->son[father->son[pos - 1]->num];
 		father->son[pos - 1]->son[father->son[pos - 1]->num] = nullptr;
 		father->son[pos - 1]->num--;
 		return 0;
@@ -441,7 +504,10 @@ int Borrow(BTree tree, PNode ptr)
 	//father->son[pos]的兄弟节点数据量都刚满足标准，合并son[pos]和一个兄弟节点
 	if (pos == 0)		
 	{
-		Insert0(ptr, father->value[0]);
+		Insert0(ptr, ptr->fa->value[0]);
+		cout << ptr->num << endl;
+		cout << ptr->value[0] << endl;
+
 		for (int i = 0; i < father->son[1]->num; i++)
 		{
 			ptr->value[ptr->num + i] = father->son[1]->value[i];
@@ -449,12 +515,16 @@ int Borrow(BTree tree, PNode ptr)
 		for (int i = 0; i < father->son[1]->num+1; i++)
 		{
 			ptr->son[ptr->num + i] = father->son[1]->son[i];
+			if (!IsLeaf(ptr)) father->son[1]->son[i]->fa = ptr;
 		}
 		ptr->num += father->son[1]->num;
+		
 		Move(father,0);
+		father->son[0]->fa = nullptr;
 		father->son[0] = ptr;
-
+		
 		Check(tree ,father);
+		Check(tree, ptr);
 	}
 	else
 	{
@@ -467,17 +537,114 @@ int Borrow(BTree tree, PNode ptr)
 		for (int i = 0; i < ptr->num+1; i++)
 		{
 			father->son[pos - 1]->son[father->son[pos - 1]->num + i] = ptr->son[i];
+			if (!IsLeaf(ptr)) ptr->son[i]->fa = father->son[pos - 1];
 		}
 		father->son[pos - 1]->num += ptr->num;
-		Move(father,pos-1);
+		Mover(father,pos-1);
 		father->son[pos - 1] = lson;
 
 		Check(tree, father);
+		Check(tree, lson);
 	}
 
 	return 0;
 
 }
+
+void ShowTree(PNode node, int deep)				//打印树
+{
+	cout << "----------------" << endl;
+	cout << "这是第" << deep << "层" << endl;
+	cout << "该节点有" << node->num << "个数据" << endl;
+	cout << "该节点存储的数据：" << endl;
+	for (int i = 0; i < node->num; i++)
+		cout << node->value[i] << ' ';
+	cout << endl;
+
+
+	if (IsRoot(node))
+		cout << "这是根节点" << endl;
+	else
+		cout << "该节点的父节点是" << node->fa->value[0] << endl;
+	cout << "该节点数据数量：" << node->num << endl;
+
+	if (!IsLeaf(node))
+	{
+		for (int i = 0; i < node->num + 1; i++)
+			cout << node->son[i]->value[0] << ' ';
+		cout << endl;
+
+		for (int i = 0; i < node->num + 1; i++)
+			ShowTree(node->son[i], deep + 1);
+	}
+}
+
+deque<PNode>tqueue;
+int flag;
+void INN(PNode node,int num)
+{
+	tqueue.push_front(node);
+	if (IsRoot(node))
+	{
+		if (IsLeaf(node)) return;
+		else
+		{
+			INN(node->son[0], num);
+		}
+	}
+	else
+	{
+		++flag;
+		if (flag < num)
+			INN(node->fa->son[flag],num);
+		else if (flag == num)
+		{
+
+		}
+	}
+}
+
+void BFS(PNode root)
+{
+	if (IsEmpty(root))
+	{
+		cout << "空树" << endl;
+		return;
+	}
+	string ss("      ");
+	tqueue.push_front(root);
+	int sum = root->num;int s = 0,n=5;
+	while (!tqueue.empty())
+	{
+		for (int i = 0; i < n; i++)
+			cout << ss;
+		PNode node = tqueue.front();
+		cout << '(';
+		for (int i = 0; i < node->num; i++)
+		{
+			if (i == node->num - 1)
+				cout << node->value[i];
+			else
+				cout << node->value[i] << ',';
+			sum--;
+		}		
+		cout << ")";
+		if (sum == 0) cout << endl;
+		
+		if (!IsLeaf(node))
+		{
+			for (int i = 0; i < node->num + 1; i++)
+			{
+				tqueue.push_back(node->son[i]);
+				s += node->son[i]->num;
+			}
+			if (sum == 0) { sum = s; s = 0; n-=2; }
+		}
+		tqueue.pop_front();
+	}
+	cout << "结束" << endl;
+}
+
 int main()
 {
 	
@@ -489,18 +656,16 @@ int main()
 
 	while (n == 0)
 	{
-		cout << "加入数值请输入1，删除数值请输入0，退出程序请输入-1。"<<endl;
+		cout << "加入数值请输入1，删除数值请输入0，打印请输入-1。"<<endl;
 		cin >> n;
-		if (n == -1)
-			break;
-		else if (n == 1)
+		if (n == 1)
 		{
 			cout << "插入:" << endl;
 			cin >> n;
 			Add(tree, ptroot, n);
 			cout << rank << "阶B树" << endl;
-			ShowTree(*tree, 0);
-			cout << "----------------" << endl;
+			//ShowTree(*tree, 0);
+			//cout << "----------------" << endl;
 		}
 		else if (n == 0)
 		{
@@ -508,15 +673,17 @@ int main()
 			cin >> n;
 			Delete(tree, ptroot, n);
 			cout << rank << "阶B树" << endl;
-			ShowTree(*tree, 0);
-			cout << "----------------" << endl;
+			//ShowTree(*tree, 0);
+			//cout << "----------------" << endl;
 		}
 		else
 		{
-			cout << "请输入1或0" << endl;
+			
+			BFS(ptroot);
+			//ShowTree(*tree, 0);
+			
 		}
 		n = 0;
 	}
-	
 	
 }
